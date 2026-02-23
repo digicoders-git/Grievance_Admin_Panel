@@ -4,12 +4,23 @@ import { useSidebar } from "../../context/SidebarContext";
 import { ThemeToggleButton } from "../common/ThemeToggleButton";
 import { useTheme, ACCENT_COLORS } from "../../context/ThemeContext";
 import UserDropdown from "./UserDropdown";
+import { fetchStudents } from "../../apis/student";
+import { fetchOfficers } from "../../apis/officer";
+import { fetchAdminGrievances } from "../../apis/admin";
+import { useNavigate } from "react-router";
 
 const AppHeader = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const [isColorPickerOpen, setColorPickerOpen] = useState(false);
   const colorPickerRef = useRef(null);
+  const searchRef = useRef(null);
+  const navigate = useNavigate();
   const { accentColor, setAccentColor } = useTheme();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   const {
     isExpanded,
@@ -33,7 +44,7 @@ const AppHeader = () => {
 
   const inputRef = useRef(null);
 
-  // Close color picker on outside click
+  // Close search results on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (
@@ -42,10 +53,99 @@ const AppHeader = () => {
       ) {
         setColorPickerOpen(false);
       }
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setIsSearchOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Global Search Logic (Debounced)
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const query = searchQuery.toLowerCase();
+        const results = [];
+
+        // 1. Fetch Students
+        const studentsData = await fetchStudents({ search: query, limit: 5 });
+        if (studentsData?.students?.length > 0) {
+          results.push({
+            title: "Students",
+            items: studentsData.students.map((s) => ({
+              label: s.name,
+              subLabel: `EN: ${s.enrollmentNumber} | ${s.branch}`,
+              link: "/students",
+              type: "student",
+            })),
+          });
+        }
+
+        // 2. Fetch Officers
+        const officersData = await fetchOfficers({ search: query, limit: 5 });
+        if (officersData?.officers?.length > 0) {
+          results.push({
+            title: "Officers",
+            items: officersData.officers.map((o) => ({
+              label: o.name,
+              subLabel: `${o.designation} | ${o.department}`,
+              link: "/officers",
+              type: "officer",
+            })),
+          });
+        }
+
+        // 3. Fetch Grievances
+        const grievancesData = await fetchAdminGrievances({
+          search: query,
+          limit: 5,
+        });
+        if (grievancesData?.grievances?.length > 0) {
+          results.push({
+            title: "Grievances",
+            items: grievancesData.grievances.map((g) => ({
+              label: g.subject,
+              subLabel: `ID: #${g._id.slice(-6).toUpperCase()} | ${g.status}`,
+              link: `/grievance/${g._id}`,
+              type: "grievance",
+            })),
+          });
+        }
+
+        // 4. Commands / Navigation
+        const commands = [
+          { label: "Dashboard Overview", link: "/dashboard" },
+          { label: "Add New Student", link: "/students" },
+          { label: "Add New Officer", link: "/officers" },
+          { label: "Admin Profile Settings", link: "/profile" },
+          { label: "Export Student List", link: "/students" },
+        ].filter((cmd) => cmd.label.toLowerCase().includes(query));
+
+        if (commands.length > 0) {
+          results.push({
+            title: "Quick Commands",
+            items: commands.map((c) => ({ ...c, type: "command" })),
+          });
+        }
+
+        setSearchResults(results);
+        setIsSearchOpen(true);
+      } catch (error) {
+        console.error("Search failed", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -153,39 +253,218 @@ const AppHeader = () => {
             </svg>
           </button>
 
-          <div className="hidden lg:block">
-            <form>
+          <div className="hidden lg:block relative" ref={searchRef}>
+            <form onSubmit={(e) => e.preventDefault()}>
               <div className="relative">
-                <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
+                <span className="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2 text-gray-400">
                   <svg
-                    className="fill-gray-500 dark:fill-gray-400"
                     width="20"
                     height="20"
-                    viewBox="0 0 20 20"
+                    viewBox="0 0 24 24"
                     fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M3.04175 9.37363C3.04175 5.87693 5.87711 3.04199 9.37508 3.04199C12.8731 3.04199 15.7084 5.87693 15.7084 9.37363C15.7084 12.8703 12.8731 15.7053 9.37508 15.7053C5.87711 15.7053 3.04175 12.8703 3.04175 9.37363ZM9.37508 1.54199C5.04902 1.54199 1.54175 5.04817 1.54175 9.37363C1.54175 13.6991 5.04902 17.2053 9.37508 17.2053C11.2674 17.2053 13.003 16.5344 14.357 15.4176L17.177 18.238C17.4699 18.5309 17.9448 18.5309 18.2377 18.238C18.5306 17.9451 18.5306 17.4703 18.2377 17.1774L15.418 14.3573C16.5365 13.0033 17.2084 11.2669 17.2084 9.37363C17.2084 5.04817 13.7011 1.54199 9.37508 1.54199Z"
-                      fill=""
-                    />
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
                   </svg>
                 </span>
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Search or type command..."
-                  className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => searchQuery.trim() && setIsSearchOpen(true)}
+                  placeholder="Search students, officers, grievances..."
+                  className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-none focus:ring focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px] transition-all"
                 />
 
-                <button className="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
-                  <span> ⌘ </span>
-                  <span> K </span>
-                </button>
+                <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                  {isSearching && (
+                    <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    <span className="px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-800 text-[10px] text-gray-400 bg-gray-50/50 dark:bg-white/[0.02]">
+                      ⌘
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-800 text-[10px] text-gray-400 bg-gray-50/50 dark:bg-white/[0.02]">
+                      K
+                    </span>
+                  </div>
+                </div>
               </div>
             </form>
+
+            {/* Results Dropdown */}
+            {isSearchOpen && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 z-[9999]">
+                <div className="max-h-[70vh] overflow-y-auto p-2 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
+                  {searchResults.map((category, idx) => (
+                    <div key={idx} className="mb-4 last:mb-0">
+                      <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-gray-400 flex items-center justify-between">
+                        {category.title}
+                        <span className="px-1.5 py-0.5 rounded-md bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-700 text-[9px]">
+                          {category.items.length}
+                        </span>
+                      </p>
+                      <div className="space-y-1 mt-1">
+                        {category.items.map((item, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              navigate(item.link);
+                              setIsSearchOpen(false);
+                              setSearchQuery("");
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                          >
+                            <div className="w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 group-hover:bg-brand-50 group-hover:text-brand-500 transition-colors shrink-0">
+                              {item.type === "student" && (
+                                <svg
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                                  <circle cx="9" cy="7" r="4" />
+                                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                                </svg>
+                              )}
+                              {item.type === "officer" && (
+                                <svg
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                  <circle cx="12" cy="7" r="4" />
+                                </svg>
+                              )}
+                              {item.type === "grievance" && (
+                                <svg
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                  <polyline points="14 2 14 8 20 8" />
+                                  <line x1="16" y1="13" x2="8" y2="13" />
+                                </svg>
+                              )}
+                              {item.type === "command" && (
+                                <svg
+                                  width="18"
+                                  height="18"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <polyline points="4 17 10 11 4 5" />
+                                  <line x1="12" y1="19" x2="20" y2="19" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                {item.label}
+                              </p>
+                              {item.subLabel && (
+                                <p className="text-[10px] text-gray-500 truncate mt-0.5">
+                                  {item.subLabel}
+                                </p>
+                              )}
+                            </div>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                              >
+                                <path d="M5 12h14M12 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 bg-gray-50 dark:bg-white/[0.02] border-t border-gray-100 dark:border-gray-700 flex justify-between items-center text-[10px] text-gray-400 font-medium">
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-700/50 bg-white dark:bg-gray-800">
+                        Enter
+                      </span>
+                      select
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-700/50 bg-white dark:bg-gray-800 text-[8px]">
+                        ↑↓
+                      </span>
+                      navigate
+                    </span>
+                  </div>
+                  <span className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded border border-gray-100 dark:border-gray-700/50 bg-white dark:bg-gray-800">
+                      Esc
+                    </span>
+                    close
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {isSearchOpen &&
+              searchQuery.trim() &&
+              !isSearching &&
+              searchResults.length === 0 && (
+                <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-2xl p-8 text-center animate-in fade-in slide-in-from-top-2 duration-200 z-[9999]">
+                  <div className="w-12 h-12 rounded-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center mx-auto mb-3">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      className="text-gray-400"
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">
+                    No matches found
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Try searching for ID, name or department
+                  </p>
+                </div>
+              )}
           </div>
         </div>
         <div
