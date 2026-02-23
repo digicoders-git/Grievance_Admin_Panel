@@ -4,7 +4,7 @@ import PageMeta from "../components/common/PageMeta";
 import Modal from "../components/common/Modal";
 import { getStudentByIdApi } from "../apis/student";
 import { getOfficerByIdApi } from "../apis/officer";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import Loader from "../components/common/Loader";
 
 export default function GrievanceDetail() {
@@ -58,7 +58,6 @@ export default function GrievanceDetail() {
         title="Grievance Details | GRS Admin"
         description="View grievance details"
       />
-      <Toaster position="top-right" containerStyle={{ zIndex: 999999 }} />
 
       <div className="max-w-4xl mx-auto">
         {/* Page Header */}
