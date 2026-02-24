@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
+
 import PageMeta from "../components/common/PageMeta";
 import {
   fetchOfficers,
@@ -6,7 +8,9 @@ import {
   updateOfficerApi,
   toggleOfficerStatusApi,
   deleteOfficerApi,
+  getOfficerByIdApi,
 } from "../apis/officer";
+
 import toast from "react-hot-toast";
 import { PlusIcon } from "../icons";
 import Toggle from "../components/common/Toggle";
@@ -15,6 +19,7 @@ import Modal from "../components/common/Modal";
 import Loader from "../components/common/Loader";
 
 export default function Officers() {
+  const navigate = useNavigate();
   const [officers, setOfficers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({ active: 0, inactive: 0, total: 0 });
@@ -82,6 +87,10 @@ export default function Officers() {
     setSelectedOfficer(officer);
     setIsEditMode(true);
     setIsModalOpen(true);
+  };
+
+  const handleView = (officer) => {
+    navigate(`/officers/${officer._id}`);
   };
 
   const handleDelete = async (id) => {
@@ -229,6 +238,9 @@ export default function Officers() {
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Mobile
                   </th>
+                  <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider text-center">
+                    Total Claimed
+                  </th>
                   <th className="px-6 py-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Status
                   </th>
@@ -240,14 +252,14 @@ export default function Officers() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {loading ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-20 text-center">
+                    <td colSpan="6" className="px-6 py-20 text-center">
                       <Loader text="Loading officers..." size="h-8 w-8" />
                     </td>
                   </tr>
                 ) : officers.length === 0 ? (
                   <tr>
                     <td
-                      colSpan="5"
+                      colSpan="6"
                       className="px-6 py-10 text-center text-gray-500"
                     >
                       No officers found
@@ -285,6 +297,11 @@ export default function Officers() {
                       <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
                         {officer.mobile}
                       </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center px-2.5 py-1 text-xs font-bold leading-none text-brand-700 bg-brand-100 rounded-lg dark:bg-brand-500/20 dark:text-brand-300">
+                          {officer.totalClaimed || 0}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <Toggle
                           enabled={officer.isActive}
@@ -294,6 +311,23 @@ export default function Officers() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2 text-gray-400">
+                          <button
+                            onClick={() => handleView(officer)}
+                            className="p-2 hover:text-brand-500 transition-colors"
+                            title="View Stats"
+                          >
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                              <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                          </button>
                           <button
                             onClick={() => handleEdit(officer)}
                             className="p-2 hover:text-brand-500 transition-colors"

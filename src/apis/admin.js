@@ -17,13 +17,16 @@ export const fetchAdminGrievances = async ({
   limit = 10,
   search = "",
   status = "",
+  officerId = "",
 } = {}) => {
   const params = new URLSearchParams({ page, limit });
   if (search) params.append("search", search);
   if (status) params.append("status", status);
+  if (officerId) params.append("officerId", officerId);
   const response = await API.get(`/admin/grievance/list?${params}`);
   return response.data;
 };
+
 
 export const getDashboardStats = async () => {
   const response = await API.get("/admin/dashboard/stats");

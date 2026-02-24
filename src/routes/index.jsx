@@ -6,8 +6,10 @@ import Profile from "../pages/Profile";
 import Students from "../pages/Students";
 import StudentImportPreview from "../pages/StudentImportPreview";
 import Officers from "../pages/Officers";
+import OfficerDetail from "../pages/OfficerDetail";
 import Grievances from "../pages/Grievances";
 import GrievanceDetail from "../pages/GrievanceDetail";
+
 import NotFound from "../pages/NotFound";
 import { useAuth } from "../context/AuthContext";
 
@@ -41,7 +43,9 @@ const AppRoutes = () => {
           element={<StudentImportPreview />}
         />
         <Route path="/officers" element={<Officers />} />
+        <Route path="/officers/:id" element={<OfficerDetail />} />
         <Route path="/grievances" element={<Grievances />} />
+
         <Route path="/grievances/:id" element={<GrievanceDetail />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
